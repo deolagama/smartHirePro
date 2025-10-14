@@ -1,6 +1,6 @@
 import fitz
 import re
-import io
+import io #io lets you treat in-memory bytes as files so you can read them directly.
 from PIL import Image  #Pillow is a tool that lets Python read and handle images
 import pytesseract #Optical Character Recognition → it reads text from images
 from datasets import load_dataset
@@ -13,7 +13,7 @@ ds = load_dataset("d4rk3r/resumes-raw-pdf")
 def extract_text_from_pdf_or_image(pdf_bytes):
     text = ""
     try:
-        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc: #resumes come from a dataset in memory, not local files
             for page in doc:
                 text += page.get_text("text")
             if text.strip():
@@ -30,21 +30,7 @@ def extract_text_from_pdf_or_image(pdf_bytes):
 #We use PDF bytes because it lets us read and process PDFs directly from memory, without saving files, making the workflow faster, scalable, and cleaner .
 def preprocess_pdf(example): #Each dictionary (row) represents one resume in your case.
     pdf_bytes = example["pdf"] 
-    text = extract_text_from_pdf_bytes(pdf_bytes)
-    example['raw_text'] = text
-    return example
-
-ds = ds.map(preprocess_pdf)
-def clean_text(text):
-    """Basic cleaning of resume text."""
-    text = re.sub(r'\S+@\S+', ' ', text)  # remove emails
-    text = re.sub(r'\+?\d[\d\s-]{8,}\d', ' ', text)  # remove phone numbers
-    text = re.sub(r'[^A-Za-z\s]', ' ', text)  # remove special chars
-    text = re.sub(r'\s+', ' ', text).strip()  # normalize spaces
-    return text.lower()
-def preprocess_pdf(example):
-    pdf_bytes = example["pdf"]
-    raw_text = extract_text_from_pdf_bytes(pdf_bytes)
+    raw_text = extract_text_from_pdf_or_image(pdf_bytes)
     if not raw_text or len(raw_text) < 50:
         example["keep"] = False
         return example
@@ -56,6 +42,14 @@ def preprocess_pdf(example):
         example["keep"] = False
         return example
     
+    def clean_text(text):
+        """Basic cleaning of resume text."""
+        text = re.sub(r'\S+@\S+', ' ', text)  # remove emails
+        text = re.sub(r'\+?\d[\d\s-]{8,}\d', ' ', text)  # remove phone numbers
+        text = re.sub(r'[^A-Za-z\s]', ' ', text)  # remove special chars
+        text = re.sub(r'\s+', ' ', text).strip()  # normalize spaces
+        return text.lower()
+
     cleaned_text = clean_text(raw_text)
     
     example["raw_text"] = raw_text
