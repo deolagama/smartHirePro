@@ -1,8 +1,8 @@
 import fitz
 import re
 import io
-from PIL import Image
-import pytesseract
+from PIL import Image  #Pillow is a tool that lets Python read and handle images
+import pytesseract #Optical Character Recognition → it reads text from images
 from datasets import load_dataset
 from langdetect import detect, DetectorFactory
 
@@ -22,7 +22,7 @@ def extract_text_from_pdf_or_image(pdf_bytes):
         pass  
     try:
         image = Image.open(io.BytesIO(pdf_bytes)) #Convert raw bytes → in-memory file,uses Pillow (PIL) to open that in-memory file as an image.
-        text = pytesseract.image_to_string(image) #eads the image and uses machine learning to detect and extract the text printed in it
+        text = pytesseract.image_to_string(image) #reads the image and uses machine learning to detect and extract the text printed in it
         return text
     except Exception as e:
         return ""
