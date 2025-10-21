@@ -2,3 +2,11 @@ langdetect>=1.0.9
 PyMuPDF>=1.22.5
 datasets>=2.12.0
 pdfplumber
+torch
+transformers
+scikit-learn
+tqdm
+pandas
+pillow
+pytesseract
+joblib
