@@ -4,11 +4,12 @@ import joblib
 from tqdm import tqdm
 from datasets import load_from_disk
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import xgboost as xgb
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
-print("📂 Loading preprocessed resumes...")
+print("Loading preprocessed resumes")
 ds = load_from_disk("../data/processed_resumes_en")
 texts = ds["train"]["clean_text"]
 labels = ds["train"]["label"]
@@ -47,10 +48,16 @@ with torch.no_grad():
     outputs = model(**inputs)
     bert_probs = torch.nn.functional.softmax(outputs.logits, dim=-1).numpy()
 
-final_preds = 0.5 * tfidf_preds + 0.5 * bert_probs #ensembelling - each model 50 percent weight
-final_labels = np.argmax(final_preds, axis=1)
+print("Training XGBoost model on TF-IDF features")#XGBoost is a boosting algorithm, meaning it combines many weak models (small decision trees) into a strong model
+booster = xgb.XGBClassifier(n_estimators=100, max_depth=6, learning_rate=0.1) #Builds 100 decision trees sequentially
+booster.fit(X, labels)
+boost_preds = booster.predict_proba(X)
 
-print("Ensemble model accuracy:", accuracy_score(labels, final_labels))
+final_preds = (0.4 * tfidf_preds) + (0.4 * bert_probs) + (0.2 * boost_preds) #ensembelling - each model w percent weight
+# Resume scoring on a scale of 0-100
+predicted_prob = np.max(final_preds, axis=1)  # probability of the best-matching class
+resume_scores = predicted_prob * 100
+print("Resume scores (0-100):", resume_scores)
 
 print("Saving models")
 joblib.dump(vectorizer, "../models/tfidf_vectorizer.pkl")
