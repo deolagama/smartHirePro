@@ -1,19 +1,19 @@
-import fitz
+import fitz #PyMuPDF
 from datasets import load_dataset, Dataset, DatasetDict
-import os
+import os #file system utilities
 from langdetect import detect, LangDetectException
-import pyarrow
+import pyarrow #required by Hugging Face Datasets for efficient data storage
 
 DATASET_NAME = "d4rk3r/resumes-raw-pdf"
 OUTPUT_DATASET_PATH = "../data/processed_resumes_en"
 
-def extract_text_from_pdf(pdf_input, input_type='bytes'):
+def extract_text_from_pdf(pdf_input, input_type='bytes'): #pdf_input is the file data (can be raw bytes or file path).
     all_text = ""
     doc = None
     try:
-        if input_type == 'bytes':
-            doc = fitz.open(stream=pdf_input, filetype="pdf")
-        elif input_type == 'path':
+        if input_type == 'bytes': #it opens directly from memory
+            doc = fitz.open(stream=pdf_input, filetype="pdf") 
+        elif input_type == 'path': #it opens a file on disk
             doc = fitz.open(pdf_input)
         if doc:
             for page_num, page in enumerate(doc):
@@ -24,11 +24,11 @@ def extract_text_from_pdf(pdf_input, input_type='bytes'):
     except Exception as e:
         if doc:
             doc.close()
-        print(f"Error processing PDF: {e}")
+        print(f"Error processing PDF: {e}") #corrupted PDF, read failure
         return None
 
 def main():
-    print(f"Loading dataset '{DATASET_NAME}'...")
+    print(f"Loading dataset '{DATASET_NAME}'")
     try:
         ds = load_dataset(DATASET_NAME, split='train')
     except Exception as e:
