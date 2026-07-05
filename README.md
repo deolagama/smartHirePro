@@ -1,210 +1,289 @@
-# Smart Hire Pro 🚀
+# Smart Hire Pro 🧠
 
-Smart Hire Pro is an **ML-powered resume screening and ranking system** that automatically matches resumes to a given job description using multiple NLP and machine learning techniques. It is designed to help recruiters and hiring teams efficiently shortlist the most relevant candidates from a large pool of resumes.
+> **AI-powered Resume Intelligence Platform · RAG Architecture · Production-Ready**
 
-This project demonstrates an end-to-end **resume processing + semantic matching pipeline**, starting from raw PDF resumes to ranked candidate outputs.
-
----
-
-## ✨ Key Highlights
-
-* 📄 Processes **raw PDF resumes** at scale
-* 🌍 Filters resumes by **English language detection**
-* 🧹 Extracts and cleans resume text using **PyMuPDF**
-* 🧠 Uses **multiple scoring models** for better matching accuracy
-* 📊 Produces a final **aggregated relevance score** for ranking
-* 🔬 Designed for real-world recruitment and AI experimentation
+SmartHirePro v2 is a complete **Retrieval-Augmented Generation (RAG)** system that intelligently screens, ranks, and evaluates resumes against a job description. It replaces the previous TF-IDF/SBERT/GloVe pipeline with a modern, LLM-driven architecture suitable for an **AI Engineer portfolio**.
 
 ---
 
-## 🧠 Matching & Scoring Techniques Used
+## ✨ What's New in v2
 
-Smart Hire Pro combines **four independent similarity models** and averages their scores for robust ranking:
-
-1. **TF-IDF + Cosine Similarity**
-
-   * Captures keyword-level relevance between resumes and job descriptions
-
-2. **SBERT (Sentence-BERT)**
-
-   * Uses `all-mpnet-base-v2` for deep semantic understanding
-
-3. **GloVe Embeddings**
-
-   * Computes word-embedding-based similarity using pre-trained GloVe vectors
-
-4. **Random Forest over SBERT Embeddings**
-
-   * Uses KMeans clustering to generate pseudo-labels and trains a Random Forest for probabilistic relevance scoring
-
-The final score is the **mean of all four models**, improving reliability over single-model approaches.
+| Feature | v1 (Old) | v2 (New) |
+|---|---|---|
+| Ranking | TF-IDF + SBERT + GloVe + RF | RAG (Retrieve → Reason) |
+| Output | Similarity score only | Score + Skills + Strengths + Weaknesses + Explanation + Interview Qs |
+| LLM | None | GPT-4o-mini / Llama 3 |
+| Vector DB | None | FAISS or ChromaDB |
+| Architecture | Single scripts | Clean modular architecture |
+| API | None | FastAPI REST API |
+| Frontend | None | Streamlit dashboard |
 
 ---
 
-## 🗂️ Project Workflow
+## 🏗️ Architecture
 
 ```
-Raw Resume PDFs
-      ↓
-Text Extraction (PyMuPDF)
-      ↓
-Language Filtering (English only)
-      ↓
-Processed Dataset (Hugging Face Dataset)
-      ↓
-Feature Extraction & Embeddings
-      ↓
-Similarity Scoring (TF-IDF, SBERT, GloVe, RF)
-      ↓
-Final Resume Ranking
+PDF Resumes
+     │
+     ▼
+┌──────────────────────────────────────────────────────────────┐
+│                        INGESTION                             │
+│  PDFExtractor (PyMuPDF) → Language Filter → ResumeDocument  │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                        CHUNKING                              │
+│  SectionChunker (header/experience/skills/…) → ResumeChunk  │
+│  ↳ Falls back to SlidingWindowChunker if no sections found  │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      EMBEDDING                               │
+│  SentenceTransformers (all-MiniLM-L6-v2) → float32 vectors  │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                     VECTOR STORE                             │
+│  FAISSVectorStore or ChromaVectorStore (persistent)          │
+└─────────────────────────────┬────────────────────────────────┘
+                              │ (at query time)
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      RETRIEVAL                               │
+│  Embed job description → ANN search → Group by resume →      │
+│  Rank by weighted similarity → CandidateContext              │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  LLM EVALUATION (RAG)                        │
+│  System prompt + resume context + job description            │
+│  → GPT-4o-mini / Llama 3                                    │
+│  → Structured JSON: score, skills, strengths, weaknesses,   │
+│     explanation, recommendation, interview questions         │
+└─────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
+          ┌───────────────────┴───────────────────┐
+          │                                       │
+    FastAPI REST API                   Streamlit Dashboard
+    POST /api/v1/ingest               Drag-and-drop PDF upload
+    POST /api/v1/evaluate             Candidate cards + scoring
+    GET  /api/v1/health               Skill pills + interview Qs
 ```
-
----
-
-## 🛠️ Tech Stack
-
-### Core Technologies
-
-* **Python 3**
-* **PyMuPDF (fitz)** – PDF text extraction
-* **Hugging Face Datasets** – Dataset handling & storage
-* **langdetect** – Language detection
-
-### Machine Learning & NLP
-
-* **scikit-learn** – TF-IDF, Random Forest, KMeans
-* **Sentence-Transformers (SBERT)**
-* **GloVe (100d embeddings)**
-* **NumPy**
-
-### Utilities
-
-* **joblib** – Model persistence
-* **PyArrow** – Efficient dataset storage
 
 ---
 
 ## 📂 Project Structure
 
 ```
-Smart-Hire-Pro/
-│── data/
-│   └── processed_resumes_en/
-│── models/
-│   ├── tfidf_vectorizer.pkl
-│   ├── resume_tfidf_matrix.pkl
-│── src/
-│   ├── preprocess_resumes.py
-│   ├── train_and_rank.py
-│── README.md
+smartHirePro/
+│
+├── config/
+│   └── settings.py          # Centralised config (env vars + .env)
+│
+├── utils/
+│   └── logger.py            # Rotating file + console logger
+│
+├── ingestion/
+│   └── ingestor.py          # PDF extraction, HF dataset, language filter
+│
+├── chunking/
+│   └── chunker.py           # Section-aware + sliding-window chunker
+│
+├── embedding/
+│   └── embedder.py          # SentenceTransformers + OpenAI embedding engine
+│
+├── vector_store/
+│   └── store.py             # FAISS + ChromaDB backends, factory
+│
+├── retrieval/
+│   └── retriever.py         # ANN search, resume grouping, ranked context
+│
+├── prompting/
+│   └── prompts.py           # All LLM prompt templates
+│
+├── llm/
+│   └── client.py            # OpenAI + Ollama clients, JSON parsing
+│
+├── evaluation/
+│   └── evaluator.py         # RAG pipeline orchestrator, EvaluationResult
+│
+├── pipeline/
+│   └── run_ingestion.py     # CLI ingestion pipeline runner
+│
+├── api/
+│   └── main.py              # FastAPI application
+│
+├── frontend/
+│   └── app.py               # Streamlit dashboard
+│
+├── src/
+│   ├── preprocess_data.py   # (Legacy v1 – kept for reference)
+│   └── train_model.py       # (Legacy v1 – kept for reference)
+│
+├── data/
+│   ├── raw_resumes/         # Place PDF files here for local ingestion
+│   └── vector_store/        # Auto-generated FAISS/Chroma index
+│
+├── logs/                    # Auto-generated log files
+├── .env.example             # Environment variable template
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## 📥 Dataset Used
+## ⚙️ Setup
 
-* **Source:** Hugging Face dataset – `d4rk3r/resumes-raw-pdf`
-* **Format:** Raw PDF resumes
-* **Processing:**
-
-  * Text extraction from PDF
-  * Language filtering (English only)
-  * Saved as a Hugging Face Dataset on disk
-
----
-
-## ⚙️ Installation & Setup
-
-### 1️⃣ Clone the Repository
+### 1. Clone & create virtual environment
 
 ```bash
 git clone https://github.com/deolagama/smartHirePro.git
-cd smart-hire-pro
-```
-
-### 2️⃣ Create Virtual Environment
-
-```bash
+cd smartHirePro
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 ```
 
-### 3️⃣ Install Dependencies
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4️⃣ Login to Hugging Face (Required)
+### 3. Configure environment
 
+```bash
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY (or configure Ollama)
+```
+
+### 4. Create required directories
+
+```bash
+mkdir -p data/raw_resumes data/vector_store logs
+```
+
+---
+
+## ▶️ Running the System
+
+### Step 1: Ingest Resumes
+
+**Option A — Local PDF files:**
+```bash
+# Place your PDFs in data/raw_resumes/
+python -m pipeline.run_ingestion --source local --dir data/raw_resumes
+```
+
+**Option B — HuggingFace dataset:**
 ```bash
 huggingface-cli login
+python -m pipeline.run_ingestion --source huggingface
 ```
 
-### 5️⃣ Download GloVe Embeddings
-
-Download **glove.6B.100d.txt** and place it in the project root or update the path in code.
-
----
-
-## ▶️ Running the Project
-
-### Step 1: Preprocess Resumes
+### Step 2: Start the API
 
 ```bash
-python src/preprocess_resumes.py
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-* Extracts text from PDFs
-* Filters English resumes
-* Saves processed dataset to disk
+API docs: http://localhost:8000/docs
 
-### Step 2: Rank Resumes for a Job Description
+### Step 3: Start the Frontend
 
 ```bash
-python src/train_and_rank.py
+streamlit run frontend/app.py
 ```
 
-* Computes similarity scores
-* Outputs top-ranked resumes with relevance scores
+Dashboard: http://localhost:8501
 
 ---
 
-## 📊 Sample Output
+## 🔌 API Reference
 
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/health` | API health + store count |
+| `POST` | `/api/v1/ingest` | Upload PDF resumes (multipart) |
+| `POST` | `/api/v1/evaluate` | Evaluate candidates for a job |
+| `GET` | `/api/v1/store/stats` | Vector store statistics |
+| `DELETE` | `/api/v1/store/clear` | Clear all vectors |
+
+### Evaluate Request Body
+
+```json
+{
+  "job_description": "We are hiring a Senior Python Engineer...",
+  "top_k": 5,
+  "include_summary": true
+}
 ```
-=== Top Matches ===
-1. Resume: john_doe.pdf   | Score: 0.8421
-2. Resume: jane_smith.pdf | Score: 0.8164
-3. Resume: alex_k.pdf     | Score: 0.8012
+
+### Evaluation Response (per candidate)
+
+```json
+{
+  "resume_id": "john_doe.pdf",
+  "candidate_score": 87,
+  "matching_skills": ["Python", "FastAPI", "PostgreSQL", "Docker"],
+  "missing_skills": ["Kubernetes", "Terraform"],
+  "strengths": ["5 years of backend Python experience", "Led ML platform team"],
+  "weaknesses": ["No cloud infrastructure experience mentioned"],
+  "explanation": "John demonstrates strong backend skills aligned with the role...",
+  "hiring_recommendation": "STRONG_YES",
+  "interview_questions": [
+    "Describe your experience designing microservices with FastAPI.",
+    "How have you handled database migrations in production?",
+    ...
+  ],
+  "retrieval_score": 0.8921
+}
 ```
 
 ---
 
-## 🚀 Future Enhancements
+## 🔧 Configuration
 
-* 🧠 Supervised learning with labeled resume-job matches
-* 📌 Skill extraction & weighting
-* 🌐 Web-based recruiter dashboard (Flask/React)
-* 📧 Automated shortlisting notifications
-* 🗄️ Resume database indexing for faster retrieval
+All settings are controlled via `.env`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `openai` | `openai` or `ollama` |
+| `OPENAI_API_KEY` | — | Your OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model name |
+| `OLLAMA_MODEL` | `llama3` | Ollama model tag |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformers model |
+| `VECTOR_STORE_TYPE` | `faiss` | `faiss` or `chroma` |
+| `CHUNK_SIZE` | `512` | Tokens per chunk |
+| `CHUNK_OVERLAP` | `64` | Overlap between chunks |
+| `TOP_K_CHUNKS` | `10` | Chunks retrieved per query |
+| `TOP_K_RESUMES` | `5` | Candidates returned per query |
 
 ---
 
-## 🎯 Use Cases
+## 🚀 Use with Local Llama (Ollama)
 
-* ML-based resume shortlisting
-* Recruitment automation systems
-* NLP research & experimentation
-* Academic mini / major projects
+```bash
+# Install Ollama: https://ollama.com
+ollama pull llama3
+ollama serve
+
+# Set in .env:
+# LLM_PROVIDER=ollama
+# OLLAMA_MODEL=llama3
+```
 
 ---
 
 ## 👩‍💻 Author
 
-**Deola Gama**
-Full-stack developer exploring ML-driven recruitment solutions.
+**Deola Gama** — AI Engineer  
+Building production-grade AI systems for modern recruitment.
 
 ---
 
-⭐ If you find this project useful, consider starring the repository!
+⭐ Star this repo if it helped you build your AI portfolio!
